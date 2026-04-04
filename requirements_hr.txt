@@ -1,0 +1,3 @@
+# AI HR & Recruitment Automation Dependencies
+anthropic>=0.50.0
+pydantic>=2.0.0
