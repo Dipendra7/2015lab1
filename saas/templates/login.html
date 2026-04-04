@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Sign In{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex">
+  <!-- Left panel -->
+  <div class="hidden lg:flex lg:w-1/2 bg-indigo-950 flex-col justify-between p-12">
+    <div>
+      <div class="flex items-center gap-3 mb-16">
+        <div class="w-10 h-10 bg-indigo-400 rounded-xl flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <span class="text-white font-bold text-2xl">HireAI</span>
+      </div>
+      <h1 class="text-4xl font-bold text-white leading-tight mb-6">
+        Hire faster.<br/>Hire smarter.
+      </h1>
+      <p class="text-indigo-300 text-lg leading-relaxed mb-10">
+        AI-powered recruitment that cuts time-to-hire by 60–75%.
+        From job description to onboarding, fully automated.
+      </p>
+      <div class="space-y-4">
+        {% for stat in [("43%", "of HR teams now use AI in hiring"), ("9%", "higher quality-of-hire with AI screening"), ("75%", "reduction in CV review time")] %}
+        <div class="flex items-center gap-4">
+          <div class="text-2xl font-bold text-indigo-300">{{ stat[0] }}</div>
+          <div class="text-indigo-400 text-sm">{{ stat[1] }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <p class="text-indigo-600 text-sm">© 2026 HireAI. All rights reserved.</p>
+  </div>
+
+  <!-- Right panel -->
+  <div class="flex-1 flex items-center justify-center px-6 py-12 bg-white">
+    <div class="w-full max-w-md">
+      <div class="lg:hidden flex items-center gap-2 mb-10">
+        <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <span class="font-bold text-xl text-indigo-950">HireAI</span>
+      </div>
+
+      <h2 class="text-3xl font-bold text-gray-900 mb-2">Welcome back</h2>
+      <p class="text-gray-500 mb-8">Sign in to your HR workspace</p>
+
+      <div id="error-msg" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm"></div>
+
+      <form id="login-form" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Work email</label>
+          <input type="email" name="email" required autocomplete="email"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder="you@company.com" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+          <input type="password" name="password" required autocomplete="current-password"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder="••••••••" />
+        </div>
+        <button type="submit" id="login-btn"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition-colors text-sm">
+          Sign in
+        </button>
+      </form>
+
+      <p class="text-center text-sm text-gray-500 mt-6">
+        No account yet?
+        <a href="/register" class="font-medium text-indigo-600 hover:text-indigo-500">Start free trial</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('error-msg');
+  errEl.classList.add('hidden');
+  setLoading(btn, true);
+  const fd = new FormData(e.target);
+  try {
+    const data = await api('POST', '/api/auth/login', {
+      email: fd.get('email'), password: fd.get('password'),
+    });
+    window.location.href = data.redirect || '/dashboard';
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+    setLoading(btn, false);
+  }
+});
+</script>
+{% endblock %}

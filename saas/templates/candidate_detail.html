@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+{% block title %}{{ candidate.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto" x-data="candidateDetail()">
+  <!-- Header -->
+  <div class="mb-6">
+    <a href="/jobs/{{ job.id }}" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-3">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+      </svg>
+      Back to {{ job.title }}
+    </a>
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xl">
+          {{ candidate.name[0].upper() }}
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">{{ candidate.name }}</h1>
+          <p class="text-gray-500 text-sm">{{ candidate.email }}{% if candidate.phone %} · {{ candidate.phone }}{% endif %}</p>
+          <p class="text-gray-400 text-xs mt-0.5">{{ candidate.source }} · Applied {{ candidate.applied_at.strftime('%d %b %Y') }}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <select id="status-select" onchange="updateStatus(this.value)"
+          class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          {% for s in VALID_STATUSES %}
+          <option value="{{ s }}" {% if candidate.status == s %}selected{% endif %}>{{ s|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Score banner -->
+  {% if score %}
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+    {% for label, value, max_val, color in [
+      ("Total Score", score.total_score, 100, "indigo"),
+      ("Skills Match", score.skills_match_score, 40, "blue"),
+      ("Experience", score.experience_score, 30, "cyan"),
+      ("Culture Fit", score.culture_fit_score, 20, "violet"),
+      ("Red Flags", score.red_flags_deduction, 30, "red"),
+    ] %}
+    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+      <p class="text-xs text-gray-500 mb-1">{{ label }}</p>
+      <p class="text-2xl font-bold text-{{ color }}-600">{{ value }}</p>
+      <p class="text-xs text-gray-400">/{{ max_val }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="mb-6">
+    {% set rec = score.recommendation %}
+    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold
+      {% if rec == 'Strong Yes' %}bg-green-100 text-green-800
+      {% elif rec == 'Yes' %}bg-indigo-100 text-indigo-800
+      {% elif rec == 'Maybe' %}bg-yellow-100 text-yellow-800
+      {% else %}bg-red-100 text-red-800{% endif %}">
+      AI Recommendation: {{ rec }}
+    </span>
+    <span class="ml-3 text-sm text-gray-600 italic">{{ score.one_line_summary }}</span>
+  </div>
+  {% endif %}
+
+  <!-- Tab bar -->
+  <div class="flex gap-1 bg-gray-100 p-1 rounded-lg mb-6 w-fit flex-wrap">
+    {% for t, label in [("overview", "Overview"), ("cv", "CV"), ("interview", "Interview Kit"), ("schedule", "Schedule"), ("onboarding", "Onboarding")] %}
+    <button @click="tab = '{{ t }}'"
+      :class="tab === '{{ t }}' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+      class="px-3 py-2 rounded-md text-sm font-medium transition-colors">
+      {{ label }}
+      {% if t == 'interview' and kit %}
+        <span class="ml-1 w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+      {% endif %}
+      {% if t == 'schedule' and schedule %}
+        <span class="ml-1 w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+      {% endif %}
+      {% if t == 'onboarding' and onboarding %}
+        <span class="ml-1 w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+      {% endif %}
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- ── Overview tab ── -->
+  <div x-show="tab === 'overview'" x-cloak>
+    <div class="grid md:grid-cols-2 gap-6">
+      {% if score %}
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 class="font-semibold text-gray-900 mb-4">Strengths</h3>
+        <ul class="space-y-2">
+          {% for s in score.strengths %}<li class="flex items-start gap-2 text-sm text-gray-700"><span class="text-green-500 mt-0.5">✓</span>{{ s }}</li>{% endfor %}
+        </ul>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 class="font-semibold text-gray-900 mb-4">Skills Matched</h3>
+        <div class="flex flex-wrap gap-2">
+          {% for s in score.skills_matched %}
+          <span class="px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">{{ s }}</span>
+          {% endfor %}
+        </div>
+        {% if score.skills_missing %}
+        <h4 class="font-medium text-gray-700 text-sm mt-4 mb-2">Missing Skills</h4>
+        <div class="flex flex-wrap gap-2">
+          {% for s in score.skills_missing %}
+          <span class="px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">{{ s }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% if score.red_flags %}
+      <div class="bg-red-50 rounded-xl border border-red-200 p-6 md:col-span-2">
+        <h3 class="font-semibold text-red-900 mb-3">Red Flags</h3>
+        <ul class="space-y-1">
+          {% for f in score.red_flags %}<li class="text-sm text-red-700 flex gap-2"><span>⚠</span>{{ f }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% endif %}
+
+      <!-- AI Actions -->
+      <div class="bg-white rounded-xl border border-gray-200 p-6 md:col-span-{% if score %}1{% else %}2{% endif %}">
+        <h3 class="font-semibold text-gray-900 mb-4">AI Actions</h3>
+        <div class="space-y-3">
+          <button @click="scheduleInterview()" :disabled="actionLoading"
+            class="w-full flex items-center gap-3 px-4 py-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-sm font-medium text-indigo-700 transition-colors disabled:opacity-50">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            Schedule Interview
+          </button>
+          <button @click="generateKit()" :disabled="actionLoading"
+            class="w-full flex items-center gap-3 px-4 py-3 bg-violet-50 hover:bg-violet-100 rounded-lg text-sm font-medium text-violet-700 transition-colors disabled:opacity-50">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            Generate Interview Kit
+          </button>
+          <button @click="generateOnboarding()" :disabled="actionLoading"
+            class="w-full flex items-center gap-3 px-4 py-3 bg-green-50 hover:bg-green-100 rounded-lg text-sm font-medium text-green-700 transition-colors disabled:opacity-50">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138z"/>
+            </svg>
+            Generate Onboarding Plan
+          </button>
+        </div>
+        <span x-show="actionLoading" class="block text-xs text-gray-400 mt-3 text-center">Processing in background…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CV tab ── -->
+  <div x-show="tab === 'cv'" x-cloak>
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <pre class="whitespace-pre-wrap font-mono text-sm text-gray-700 leading-relaxed">{{ candidate.cv_text }}</pre>
+    </div>
+  </div>
+
+  <!-- ── Interview Kit tab ── -->
+  <div x-show="tab === 'interview'" x-cloak>
+    {% if kit %}
+    <div class="space-y-4">
+      <div class="bg-indigo-50 rounded-xl border border-indigo-200 p-5">
+        <h3 class="font-semibold text-indigo-900 mb-2">Opening Script</h3>
+        <p class="text-sm text-indigo-800">{{ kit.opening_script }}</p>
+      </div>
+      {% for q in kit.questions %}
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="flex items-start gap-3 mb-3">
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold
+            {% if q.category == 'Technical' %}bg-blue-100 text-blue-700
+            {% elif q.category == 'Behavioural' %}bg-purple-100 text-purple-700
+            {% elif q.category == 'Role-Specific' %}bg-yellow-100 text-yellow-700
+            {% else %}bg-green-100 text-green-700{% endif %}">
+            {{ q.category }}
+          </span>
+        </div>
+        <p class="font-medium text-gray-900 mb-3">{{ q.question }}</p>
+        <div class="pl-4 border-l-2 border-gray-200">
+          <p class="text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">Follow-up probes</p>
+          <ul class="space-y-1">
+            {% for p in q.follow_up_probes %}<li class="text-sm text-gray-600">— {{ p }}</li>{% endfor %}
+          </ul>
+        </div>
+        <div class="mt-3 bg-green-50 rounded-lg px-3 py-2">
+          <p class="text-xs font-medium text-green-700 mb-0.5">What good looks like</p>
+          <p class="text-sm text-green-800">{{ q.what_good_looks_like }}</p>
+        </div>
+      </div>
+      {% endfor %}
+      <div class="bg-gray-50 rounded-xl border border-gray-200 p-5">
+        <h3 class="font-semibold text-gray-900 mb-2">Closing Script</h3>
+        <p class="text-sm text-gray-700">{{ kit.closing_script }}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 class="font-semibold text-gray-900 mb-2">Debrief Template</h3>
+        <pre class="whitespace-pre-wrap text-sm text-gray-700">{{ kit.debrief_template }}</pre>
+      </div>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+      <p class="text-gray-400 mb-4">No interview kit generated yet.</p>
+      <button @click="generateKit()" class="text-sm bg-violet-600 text-white px-5 py-2.5 rounded-lg hover:bg-violet-700">
+        Generate Interview Kit
+      </button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Schedule tab ── -->
+  <div x-show="tab === 'schedule'" x-cloak>
+    {% if schedule %}
+    <div class="bg-white rounded-xl border border-gray-200 p-6 max-w-lg">
+      <h3 class="font-semibold text-gray-900 mb-4">Interview Scheduled</h3>
+      <dl class="space-y-3 text-sm">
+        <div class="flex justify-between"><dt class="text-gray-500">Format</dt><dd class="font-medium">{{ schedule.interview_format }}</dd></div>
+        <div class="flex justify-between"><dt class="text-gray-500">Duration</dt><dd class="font-medium">{{ schedule.duration_minutes }} minutes</dd></div>
+        <div class="flex justify-between"><dt class="text-gray-500">Interviewer(s)</dt><dd class="font-medium">{{ schedule.interviewer_names | join(', ') }}</dd></div>
+        {% if schedule.proposed_slots %}
+        <div class="flex justify-between"><dt class="text-gray-500">Proposed Slot</dt><dd class="font-medium">{{ schedule.proposed_slots[0] }}</dd></div>
+        {% endif %}
+        {% if schedule.calendar_link %}
+        <div class="flex justify-between items-center">
+          <dt class="text-gray-500">Calendar</dt>
+          <dd><a href="{{ schedule.calendar_link }}" target="_blank" class="text-indigo-600 hover:underline text-xs">Open →</a></dd>
+        </div>
+        {% endif %}
+      </dl>
+      {% if schedule.confirmation_message %}
+      <div class="mt-5 bg-indigo-50 rounded-lg p-4">
+        <p class="text-xs font-medium text-indigo-700 mb-1">Confirmation sent to candidate</p>
+        <p class="text-sm text-indigo-800">{{ schedule.confirmation_message }}</p>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+      <p class="text-gray-400 mb-4">No interview scheduled yet.</p>
+      <button @click="scheduleInterview()" class="text-sm bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700">
+        Schedule Interview
+      </button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Onboarding tab ── -->
+  <div x-show="tab === 'onboarding'" x-cloak>
+    {% if onboarding %}
+    <div class="space-y-4">
+      <div class="bg-green-50 rounded-xl border border-green-200 p-5">
+        <p class="text-sm font-semibold text-green-900 mb-1">{{ onboarding.welcome_email_subject }}</p>
+        <pre class="whitespace-pre-wrap text-sm text-green-800">{{ onboarding.welcome_email_body }}</pre>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+          <h3 class="font-semibold text-gray-900 mb-3">IT Setup</h3>
+          <ul class="space-y-1.5">
+            {% for item in onboarding.it_setup_items %}
+            <li class="text-sm text-gray-600 flex gap-2"><span class="text-indigo-400">□</span>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+          <h3 class="font-semibold text-gray-900 mb-3">Contract Checklist</h3>
+          <ul class="space-y-1.5">
+            {% for item in onboarding.contract_checklist %}
+            <li class="text-sm text-gray-600 flex gap-2"><span class="text-green-400">□</span>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 class="font-semibold text-gray-900 mb-3">Day 1 Schedule</h3>
+        <pre class="whitespace-pre-wrap text-sm text-gray-700">{{ onboarding.day_1_schedule }}</pre>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 class="font-semibold text-gray-900 mb-3">30/60/90 Day Goals</h3>
+        <pre class="whitespace-pre-wrap text-sm text-gray-700">{{ onboarding.thirty_sixty_ninety_goals }}</pre>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-100">
+          <h3 class="font-semibold text-gray-900">Full Task List</h3>
+        </div>
+        <div class="divide-y divide-gray-50">
+          {% for task in onboarding.tasks %}
+          <div class="flex items-center gap-4 px-5 py-3">
+            <span class="text-xs font-medium text-gray-500 w-16 flex-shrink-0">{{ task.day }}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full
+              {% if task.category == 'IT Setup' %}bg-blue-100 text-blue-600
+              {% elif task.category == 'HR Admin' %}bg-purple-100 text-purple-600
+              {% elif task.category == 'Training' %}bg-yellow-100 text-yellow-600
+              {% else %}bg-green-100 text-green-600{% endif %}
+              flex-shrink-0">{{ task.category }}</span>
+            <p class="text-sm text-gray-700 flex-1">{{ task.task }}</p>
+            <span class="text-xs text-gray-400 flex-shrink-0">{{ task.owner }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+      <p class="text-gray-400 mb-4">No onboarding plan yet.</p>
+      <button @click="generateOnboarding()" class="text-sm bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700">
+        Generate Onboarding Plan
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CANDIDATE_ID = {{ candidate.id }};
+
+function candidateDetail() {
+  return {
+    tab: 'overview',
+    actionLoading: false,
+
+    async scheduleInterview() {
+      this.actionLoading = true;
+      try {
+        await api('POST', '/api/pipeline/schedule', {
+          candidate_id: CANDIDATE_ID,
+          interviewer_name: 'Hiring Manager',
+          interviewer_email: 'hiring@company.com',
+        });
+        showToast('Interview scheduling started — refresh in ~30s', 'info');
+      } catch (err) { showToast(err.message, 'error'); }
+      finally { this.actionLoading = false; }
+    },
+
+    async generateKit() {
+      this.actionLoading = true;
+      try {
+        await api('POST', `/api/pipeline/interview-kit/${CANDIDATE_ID}`, {});
+        showToast('Interview kit generation started — refresh in ~30s', 'info');
+      } catch (err) { showToast(err.message, 'error'); }
+      finally { this.actionLoading = false; }
+    },
+
+    async generateOnboarding() {
+      this.actionLoading = true;
+      try {
+        await api('POST', '/api/pipeline/onboarding', { candidate_id: CANDIDATE_ID });
+        showToast('Onboarding plan generation started — refresh in ~60s', 'info');
+      } catch (err) { showToast(err.message, 'error'); }
+      finally { this.actionLoading = false; }
+    },
+  };
+}
+
+async function updateStatus(status) {
+  try {
+    await api('PATCH', `/api/candidates/${CANDIDATE_ID}/status`, { status });
+    showToast(`Status updated to ${status}`);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+</script>
+{% endblock %}

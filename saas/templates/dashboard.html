@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">Good {{ greeting }}, {{ user.full_name.split()[0] }}</h1>
+    <p class="text-gray-500 text-sm mt-1">Here's what's happening with your hiring pipeline today.</p>
+  </div>
+
+  <!-- Stats grid -->
+  <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8" id="stats-grid">
+    {% set stat_items = [
+      ("Active Jobs", stats.active_jobs, "bg-indigo-50 text-indigo-600", "M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"),
+      ("Total Candidates", stats.total_candidates, "bg-blue-50 text-blue-600", "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"),
+      ("Screened by AI", stats.screened, "bg-cyan-50 text-cyan-600", "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"),
+      ("Shortlisted", stats.shortlisted, "bg-violet-50 text-violet-600", "M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"),
+      ("Interviews", stats.interviews_scheduled, "bg-yellow-50 text-yellow-600", "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"),
+      ("Hired", stats.hired, "bg-green-50 text-green-600", "M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"),
+    ] %}
+    {% for label, value, colors, icon in stat_items %}
+    <div class="bg-white rounded-xl border border-gray-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">{{ label }}</span>
+        <div class="w-8 h-8 rounded-lg {{ colors }} flex items-center justify-center">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ icon }}"/>
+          </svg>
+        </div>
+      </div>
+      <p class="text-3xl font-bold text-gray-900">{{ value }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Two column layout -->
+  <div class="grid lg:grid-cols-5 gap-6">
+    <!-- Recent jobs -->
+    <div class="lg:col-span-3 bg-white rounded-xl border border-gray-200">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-900">Active Jobs</h2>
+        <a href="/jobs/new"
+          class="text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors">
+          + New Job
+        </a>
+      </div>
+      <div class="divide-y divide-gray-50">
+        {% if recent_jobs %}
+          {% for job in recent_jobs %}
+          <a href="/jobs/{{ job.id }}" class="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+            <div>
+              <p class="text-sm font-medium text-gray-900">{{ job.title }}</p>
+              <p class="text-xs text-gray-500 mt-0.5">{{ job.department }} · {{ job.location }}</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="text-right">
+                <p class="text-sm font-semibold text-gray-900">{{ job.candidate_count }}</p>
+                <p class="text-xs text-gray-400">candidates</p>
+              </div>
+              <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium
+                {% if job.status == 'active' %}bg-green-100 text-green-700
+                {% elif job.status == 'paused' %}bg-yellow-100 text-yellow-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ job.status }}
+              </span>
+            </div>
+          </a>
+          {% endfor %}
+        {% else %}
+          <div class="px-5 py-10 text-center">
+            <p class="text-gray-400 text-sm">No active jobs yet.</p>
+            <a href="/jobs/new" class="text-indigo-600 text-sm font-medium hover:underline mt-1 inline-block">Create your first job</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- AI Activity feed -->
+    <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-900">AI Activity</h2>
+      </div>
+      <div class="divide-y divide-gray-50">
+        {% if activity %}
+          {% for item in activity %}
+          <div class="px-5 py-3">
+            <div class="flex items-start gap-3">
+              <div class="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ item.icon }}"/>
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm text-gray-900">{{ item.text }}</p>
+                <p class="text-xs text-gray-400 mt-0.5">{{ item.time }}</p>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="px-5 py-10 text-center">
+            <p class="text-gray-400 text-sm">No AI activity yet.</p>
+            <p class="text-gray-400 text-xs mt-1">Start by creating a job and adding candidates.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

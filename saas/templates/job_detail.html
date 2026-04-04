@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}{{ job.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto" x-data="jobDetail()">
+  <!-- Header -->
+  <div class="mb-6">
+    <a href="/jobs" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-3">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+      </svg>
+      All Jobs
+    </a>
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ job.title }}</h1>
+        <p class="text-gray-500 text-sm mt-1">{{ job.department }} · {{ job.location }} · {{ job.employment_type }}</p>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="inline-flex px-3 py-1 rounded-full text-sm font-medium
+          {% if job.status == 'active' %}bg-green-100 text-green-700
+          {% elif job.status == 'paused' %}bg-yellow-100 text-yellow-700
+          {% else %}bg-gray-100 text-gray-600{% endif %}">
+          {{ job.status }}
+        </span>
+        <button @click="addCandidateOpen = true"
+          class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Add Candidate
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="flex gap-1 bg-gray-100 p-1 rounded-lg mb-6 w-fit">
+    {% for tab, label in [("pipeline", "Pipeline"), ("jd", "Job Description"), ("screening", "AI Screening")] %}
+    <button @click="tab = '{{ tab }}'"
+      :class="tab === '{{ tab }}' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+      class="px-4 py-2 rounded-md text-sm font-medium transition-colors">
+      {{ label }}
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- ── Pipeline tab ── -->
+  <div x-show="tab === 'pipeline'" x-cloak>
+    <div class="flex items-center justify-between mb-4">
+      <p class="text-sm text-gray-600">{{ total_candidates }} total candidate{{ 's' if total_candidates != 1 else '' }}</p>
+      <button @click="runScreening()" :disabled="screening"
+        class="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+        <span x-show="!screening">⚡ Screen All with AI</span>
+        <span x-show="screening" class="flex items-center gap-2">
+          <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          Screening…
+        </span>
+      </button>
+    </div>
+
+    <!-- Kanban columns -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 overflow-x-auto pb-2">
+      {% for stage_key, stage_label, bg_color in [
+        ("applied", "Applied", "bg-gray-50"),
+        ("screened", "Screened", "bg-blue-50"),
+        ("shortlisted", "Shortlisted", "bg-indigo-50"),
+        ("interviewing", "Interviewing", "bg-yellow-50"),
+        ("offer", "Offer", "bg-purple-50"),
+        ("hired", "Hired", "bg-green-50"),
+        ("rejected", "Rejected", "bg-red-50"),
+      ] %}
+      <div class="min-w-[160px] {{ bg_color }} rounded-xl p-3">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">{{ stage_label }}</h3>
+          <span class="text-xs font-bold text-gray-500">{{ pipeline[stage_key]|length }}</span>
+        </div>
+        <div class="space-y-2">
+          {% for c in pipeline[stage_key] %}
+          <a href="/candidates/{{ c.id }}"
+            class="block bg-white rounded-lg p-3 border border-gray-200 hover:border-indigo-300 hover:shadow-sm transition-all">
+            <p class="text-sm font-medium text-gray-900 truncate">{{ c.name }}</p>
+            {% if c.icp_score is not none %}
+            <div class="flex items-center gap-1.5 mt-1.5">
+              <div class="flex-1 bg-gray-200 rounded-full h-1.5">
+                <div class="h-1.5 rounded-full {% if c.icp_score >= 80 %}bg-green-500{% elif c.icp_score >= 65 %}bg-indigo-500{% elif c.icp_score >= 50 %}bg-yellow-500{% else %}bg-red-400{% endif %}"
+                  style="width: {{ c.icp_score }}%"></div>
+              </div>
+              <span class="text-xs font-semibold {% if c.icp_score >= 80 %}text-green-700{% elif c.icp_score >= 65 %}text-indigo-700{% else %}text-gray-500{% endif %}">
+                {{ c.icp_score|int }}
+              </span>
+            </div>
+            {% else %}
+            <p class="text-xs text-gray-400 mt-1">Not screened</p>
+            {% endif %}
+            <p class="text-xs text-gray-400 mt-1">{{ c.source }}</p>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ── JD tab ── -->
+  <div x-show="tab === 'jd'" x-cloak>
+    {% if jd %}
+    <div class="bg-white rounded-xl border border-gray-200 p-8 max-w-3xl prose prose-sm">
+      <h2 class="text-2xl font-bold text-gray-900 mb-1">{{ jd.title }}</h2>
+      <p class="text-gray-500 mb-6">{{ jd.department }} · {{ jd.location }} · {{ jd.employment_type }}</p>
+
+      <h3 class="font-semibold text-gray-900 mb-2">About the Role</h3>
+      <p class="text-gray-600 mb-5">{{ jd.summary }}</p>
+
+      <h3 class="font-semibold text-gray-900 mb-2">What You'll Do</h3>
+      <ul class="space-y-1 mb-5">
+        {% for r in jd.responsibilities %}<li class="text-gray-600 text-sm flex gap-2"><span class="text-indigo-400 mt-0.5">•</span>{{ r }}</li>{% endfor %}
+      </ul>
+
+      <h3 class="font-semibold text-gray-900 mb-2">What You'll Bring</h3>
+      <ul class="space-y-1 mb-5">
+        {% for q in jd.required_qualifications %}<li class="text-gray-600 text-sm flex gap-2"><span class="text-indigo-400 mt-0.5">•</span>{{ q }}</li>{% endfor %}
+      </ul>
+
+      {% if jd.preferred_qualifications %}
+      <h3 class="font-semibold text-gray-900 mb-2">Nice to Have</h3>
+      <ul class="space-y-1 mb-5">
+        {% for q in jd.preferred_qualifications %}<li class="text-gray-600 text-sm flex gap-2"><span class="text-gray-300 mt-0.5">◦</span>{{ q }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+
+      <h3 class="font-semibold text-gray-900 mb-2">What We Offer</h3>
+      <ul class="space-y-1 mb-5">
+        {% for o in jd.what_we_offer %}<li class="text-gray-600 text-sm flex gap-2"><span class="text-green-400 mt-0.5">✓</span>{{ o }}</li>{% endfor %}
+      </ul>
+
+      <div class="border-t border-gray-100 pt-5">
+        <p class="text-xs text-gray-400">{{ jd.equal_opportunity_statement }}</p>
+        <p class="text-xs text-gray-400 mt-2">SEO Keywords: {{ jd.seo_keywords | join(', ') }}</p>
+      </div>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl border border-gray-200 p-12 text-center max-w-lg">
+      <div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center mx-auto mb-4">
+        <svg class="w-6 h-6 text-indigo-400 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+      </div>
+      <h3 class="font-semibold text-gray-900 mb-2">AI is generating the JD…</h3>
+      <p class="text-sm text-gray-500 mb-4">This usually takes about 60 seconds. Refresh to check.</p>
+      <button onclick="location.reload()" class="text-sm text-indigo-600 hover:underline">Refresh page</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Screening tab ── -->
+  <div x-show="tab === 'screening'" x-cloak>
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">Candidate Rankings</h3>
+        <button @click="runScreening()"
+          class="text-sm text-violet-600 hover:text-violet-800 font-medium">Re-run screening</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 bg-gray-50">
+            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500">Rank</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500">Candidate</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 hidden md:table-cell">ICP Score</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 hidden lg:table-cell">Summary</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500">Recommendation</th>
+            <th class="px-5 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% set all_candidates = pipeline.applied + pipeline.screened + pipeline.shortlisted + pipeline.interviewing + pipeline.offer + pipeline.hired + pipeline.rejected %}
+          {% set scored_candidates = all_candidates | selectattr('icp_score', 'ne', none) | sort(attribute='icp_score', reverse=True) %}
+          {% for c in scored_candidates %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-5 py-4 font-bold text-gray-400">#{{ loop.index }}</td>
+            <td class="px-5 py-4">
+              <p class="font-medium text-gray-900">{{ c.name }}</p>
+              <p class="text-xs text-gray-400">{{ c.source }}</p>
+            </td>
+            <td class="px-5 py-4 hidden md:table-cell">
+              <div class="flex items-center gap-2">
+                <div class="w-20 bg-gray-200 rounded-full h-2">
+                  <div class="h-2 rounded-full
+                    {% if c.icp_score >= 80 %}bg-green-500
+                    {% elif c.icp_score >= 65 %}bg-indigo-500
+                    {% elif c.icp_score >= 50 %}bg-yellow-500
+                    {% else %}bg-red-400{% endif %}"
+                    style="width: {{ c.icp_score }}%"></div>
+                </div>
+                <span class="font-semibold text-gray-900">{{ c.icp_score|int }}</span>
+              </div>
+            </td>
+            <td class="px-5 py-4 text-gray-500 hidden lg:table-cell max-w-xs">
+              <p class="truncate text-xs">{{ c.score_data.get('one_line_summary', '—') }}</p>
+            </td>
+            <td class="px-5 py-4">
+              {% set rec = c.score_data.get('recommendation', '—') %}
+              <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium
+                {% if rec == 'Strong Yes' %}bg-green-100 text-green-700
+                {% elif rec == 'Yes' %}bg-indigo-100 text-indigo-700
+                {% elif rec == 'Maybe' %}bg-yellow-100 text-yellow-700
+                {% else %}bg-red-100 text-red-700{% endif %}">
+                {{ rec }}
+              </span>
+            </td>
+            <td class="px-5 py-4">
+              <a href="/candidates/{{ c.id }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">View →</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="px-5 py-8 text-center text-gray-400 text-sm">
+            No screened candidates yet. Run AI screening to score candidates.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Add Candidate Modal ── -->
+  <div x-show="addCandidateOpen" x-cloak
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+    @click.self="addCandidateOpen = false">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-900">Add Candidate</h3>
+        <button @click="addCandidateOpen = false" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <form id="add-candidate-form" class="p-6 space-y-4">
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
+            <input type="text" name="name" required
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Email *</label>
+            <input type="email" name="email" required
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
+            <input type="tel" name="phone"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Source</label>
+            <select name="source"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option>LinkedIn</option><option>Indeed</option><option>Referral</option>
+              <option>Direct</option><option>Job Board</option><option>Agency</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">CV / Resume *</label>
+          <textarea name="cv_text" rows="8" required
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none font-mono"
+            placeholder="Paste the candidate's CV text here…"></textarea>
+        </div>
+        <div class="flex items-center gap-3 pt-2">
+          <button type="submit" id="add-candidate-btn"
+            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
+            Add Candidate
+          </button>
+          <button type="button" @click="addCandidateOpen = false"
+            class="px-4 py-2.5 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function jobDetail() {
+  return {
+    tab: 'pipeline',
+    addCandidateOpen: false,
+    screening: false,
+    jobId: {{ job.id }},
+
+    async runScreening() {
+      this.screening = true;
+      try {
+        const data = await api('POST', `/api/jobs/${this.jobId}/screen`, { candidate_ids: null });
+        showToast(data.message || 'Screening started', 'info');
+        setTimeout(() => location.reload(), 3000);
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        this.screening = false;
+      }
+    },
+  };
+}
+
+document.getElementById('add-candidate-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('add-candidate-btn');
+  setLoading(btn, true);
+  const fd = new FormData(e.target);
+  const jobId = {{ job.id }};
+  try {
+    await api('POST', `/api/jobs/${jobId}/candidates`, {
+      name: fd.get('name'),
+      email: fd.get('email'),
+      phone: fd.get('phone') || '',
+      source: fd.get('source'),
+      cv_text: fd.get('cv_text'),
+    });
+    showToast('Candidate added successfully');
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    showToast(err.message, 'error');
+    setLoading(btn, false);
+  }
+});
+</script>
+{% endblock %}
